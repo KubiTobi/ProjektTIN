@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <!-- Nagłówek strony, zawiera metadane i style CSS -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planer - Spraw by dzień nie uciekł niepostrzeżenie</title>
+
+    <!-- CSS - Style strony -->
+    <style>
+        /* Style ogólne dla całego ciała strony */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        /* Style dla nagłówka */
+        header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 1em;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+        }
+
+        header p {
+            font-size: 1.2em;
+            margin-top: 0.5em;
+        }
+
+        /* Style dla głównej sekcji zawierającej formularz i zadania */
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        /* Style dla pól formularza */
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        /* Style dla przycisków */
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #45a049;
+        }
+
+        /* Style dla kontenera z zadaniami */
+        #task-container {
+            margin-top: 20px;
+        }
+
+        .task {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        /* Style dla zadań z priorytetem */
+        .priority {
+            font-weight: bold;
+            color: #d9534f;
+        }
+
+        /* Style dla przycisków w zadaniach */
+        .task-buttons button {
+            margin-left: 5px;
+        }
+
+        /* Style dla przycisków sortowania */
+        #sort-buttons {
+            margin-top: 10px;
+        }
+
+        /* Style dla stopki */
+        footer {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+
+    <!-- Załadowanie jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <!-- HTML - Struktura strony -->
+    <header>
+        <h1>Planer - Spraw by dzień nie uciekł niepostrzeżenie</h1>
+        <p>Czas to pieniądz, mądrze nim dysponuj.</p>
+    </header>
+
+    <div class="container">
+        <!-- Formularz rejestracji i logowania -->
+        <div id="auth-container">
+            <!-- Formularz rejestracji -->
+            <div id="register-form" class="auth-form">
+                <h2>Rejestracja</h2>
+                <div class="form-group">
+                    <label for="register-email">Email:</label>
+                    <input type="email" id="register-email" placeholder="Wprowadź email">
+                </div>
+                <button class="btn" id="register-btn">Zarejestruj</button>
+                <p>Masz już konto? <a href="#" id="switch-to-login">Zaloguj się</a></p>
+            </div>
+
+            <!-- Formularz logowania -->
+            <div id="login-form" class="auth-form" style="display: none;">
+                <h2>Logowanie</h2>
+                <div class="form-group">
+                    <label for="login-email">Email:</label>
+                    <input type="email" id="login-email" placeholder="Wprowadź email">
+                </div>
+                <div class="form-group">
+                    <label for="login-code">Kod:</label>
+                    <input type="text" id="login-code" placeholder="Wprowadź kod">
+                </div>
+                <button class="btn" id="login-btn">Zaloguj</button>
+                <button class="btn" id="reminder-btn" style="display: none;">Przypomnij hasło</button>
+                <p>Nie masz konta? <a href="#" id="switch-to-register">Zarejestruj się</a></p>
+            </div>
+        </div>
+
+        <!-- Planer z zadaniami -->
+        <div id="planner-container" style="display: none;">
+            <h2>Twoje zadania</h2>
+            <div class="form-group">
+                <input type="text" id="task-input" placeholder="Dodaj nowe zadanie">
+                <input type="datetime-local" id="task-deadline">
+                <button class="btn" id="add-task-btn">Dodaj</button>
+            </div>
+
+            <div id="sort-buttons">
+                <button class="btn" id="sort-alpha">Sortuj alfabetycznie</button>
+                <button class="btn" id="sort-priority">Sortuj według priorytetu</button>
+            </div>
+
+            <div id="task-container"></div>
+        </div>
+    </div>
+
+    <!-- Stopka -->
+    <footer>
+        © 2025 KubiTobi
+    </footer>
+
+    <!-- JavaScript - Skrypt do działania strony -->
+    <script>
+        // Inicjalizacja danych użytkowników
+        const users = JSON.parse(localStorage.getItem('users') || '{}');
+        let currentUser = null;
+        let loginAttempts = 0; // Licznik prób logowania
+
+        // Funkcja zapisująca zadania użytkownika do lokalnej pamięci
+        function saveTasks() {
+            const tasks = [];
+            $('#task-container .task').each(function () {
+                tasks.push({
+                    text: $(this).find('span').text(),
+                    priority: $(this).find('span').hasClass('priority'),
+                    deadline: $(this).data('deadline') || null
+                });
+            });
+            if (currentUser) {
+                users[currentUser].tasks = tasks;
+                localStorage.setItem('users', JSON.stringify(users));
+            }
+        }
+
+        // Funkcja ładująca zadania użytkownika z lokalnej pamięci
+        function loadTasks() {
+            $('#task-container').empty();
+            if (currentUser && users[currentUser].tasks) {
+                const tasks = users[currentUser].tasks;
+                tasks.forEach(task => {
+                    const displayDeadline = task.deadline ? new Date(task.deadline).toLocaleString() : 'Bezterminowe';
+                    const taskElement = $(`<div class="task" data-deadline="${task.deadline}">
+                        <span class="${task.priority ? 'priority' : ''}">${task.text} (do: ${displayDeadline})</span>
+                        <div class="task-buttons">
+                            <button class="btn priority-btn">Priorytet</button>
+                            <button class="btn up-btn">Góra</button>
+                            <button class="btn down-btn">Dół</button>
+                            <button class="btn delete-btn">Usuń</button>
+                        </div>
+                    </div>`);
+                    $('#task-container').append(taskElement.hide().slideDown());
+                });
+            }
+        }
+
+        $(document).ready(function () {
+            // Rejestracja użytkownika
+            $('#register-btn').click(function () {
+                const email = $('#register-email').val();
+                if (email) {
+                    if (!users[email]) {
+                        const code = Math.floor(1000 + Math.random() * 9000);
+                        users[email] = { code: code, tasks: [] };
+                        localStorage.setItem('users', JSON.stringify(users));
+                        alert(`Zarejestrowano! Twój kod to: ${code}`);
+                        $('#register-email').val('');
+                        $('#register-form').hide();
+                        $('#login-form').show();
+                    } else {
+                        alert('Ten email jest już zarejestrowany. Przejdź do logowania.');
+                        $('#register-form').hide();
+                        $('#login-form').show();
+                    }
+                } else {
+                    alert('Podaj poprawny email.');
+                }
+            });
+
+            // Logowanie użytkownika
+            $('#login-btn').click(function () {
+                const email = $('#login-email').val();
+                const code = $('#login-code').val();
+                if (users[email] && users[email].code == code) {
+                    alert('Zalogowano pomyślnie!');
+                    currentUser = email;
+                    $('#auth-container').hide();
+                    $('#planner-container').show();
+                    loginAttempts = 0; // Reset prób logowania
+                    loadTasks();
+                } else {
+                    loginAttempts++;
+                    alert('Niepoprawny email lub kod.');
+                    if (loginAttempts >= 3) {
+                        $('#reminder-btn').show(); // Pokazuje przycisk "Przypomnij hasło"
+                    }
+                }
+            });
+
+            // Dodawanie zadania
+            $('#add-task-btn').click(function () {
+                const taskText = $('#task-input').val();
+                const deadline = $('#task-deadline').val();
+                const displayDeadline = deadline ? new Date(deadline).toLocaleString() : 'Bezterminowe';
+
+                if (taskText) {
+                    const task = $(`<div class="task" data-deadline="${deadline}">
+                        <span>${taskText} (do: ${displayDeadline})</span>
+                        <div class="task-buttons">
+                            <button class="btn priority-btn">Priorytet</button>
+                            <button class="btn up-btn">Góra</button>
+                            <button class="btn down-btn">Dół</button>
+                            <button class="btn delete-btn">Usuń</button>
+                        </div>
+                    </div>`);
+
+                    $('#task-container').append(task.hide().slideDown());
+                    $('#task-input').val('');
+                    $('#task-deadline').val('');
+                    saveTasks();
+                }
+            });
+
+            // Funkcja przypomnienia hasła
+            $('#reminder-btn').click(function () {
+                const email = prompt('Wprowadź email, aby przypomnieć hasło:');
+                if (email && users[email]) {
+                    alert(`Wystosowano prośbę o przypomnienie hasła. Twoje hasło to: ${users[email].code}`);
+                } else {
+                    alert('Nie znaleziono konta dla podanego emaila.');
+                }
+            });
+
+            // Zmiana priorytetu zadania
+            $(document).on('click', '.priority-btn', function () {
+                const task = $(this).closest('.task');
+                task.find('span').toggleClass('priority');
+                saveTasks();
+            });
+
+            // Przemieszczanie zadań w górę
+            $(document).on('click', '.up-btn', function () {
+                const task = $(this).closest('.task');
+                task.prev().before(task);
+                saveTasks();
+            });
+
+            // Przemieszczanie zadań w dół
+            $(document).on('click', '.down-btn', function () {
+                const task = $(this).closest('.task');
+                task.next().after(task);
+                saveTasks();
+            });
+
+            // Usuwanie zadania
+            $(document).on('click', '.delete-btn', function () {
+                const task = $(this).closest('.task');
+                task.slideUp(function () {
+                    task.remove();
+                    saveTasks();
+                });
+            });
+
+            // Sortowanie zadań alfabetycznie
+            $('#sort-alpha').click(function () {
+                const tasks = $('#task-container .task').toArray().sort((a, b) => {
+                    return $(a).find('span').text().localeCompare($(b).find('span').text());
+                });
+                $('#task-container').append(tasks);
+                saveTasks();
+            });
+
+            // Sortowanie zadań według priorytetu
+            $('#sort-priority').click(function () {
+                const tasks = $('#task-container .task').toArray().sort((a, b) => {
+                    return $(b).find('span').hasClass('priority') - $(a).find('span').hasClass('priority');
+                });
+                $('#task-container').append(tasks);
+                saveTasks();
+            });
+
+            // Przełączanie między formularzami rejestracji i logowania
+            $('#switch-to-login').click(function () {
+                $('#register-form').hide();
+                $('#login-form').show();
+            });
+
+            $('#switch-to-register').click(function () {
+                $('#login-form').hide();
+                $('#register-form').show();
+            });
+        });
+    </script>
+</body>
+</html>
